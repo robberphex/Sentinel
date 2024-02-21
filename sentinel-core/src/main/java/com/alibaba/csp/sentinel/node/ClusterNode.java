@@ -19,7 +19,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.alibaba.csp.sentinel.EntryType;
 import com.alibaba.csp.sentinel.ResourceTypeConstants;
+import com.alibaba.csp.sentinel.config.SentinelConfig;
 import com.alibaba.csp.sentinel.context.ContextUtil;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.util.AssertUtil;
@@ -41,20 +43,27 @@ import com.alibaba.csp.sentinel.util.AssertUtil;
  *
  * @author qinan.qn
  * @author jialiang.linjl
+ * @author Eric Zhao
  */
 public class ClusterNode extends StatisticNode {
 
     private final String name;
     private final int resourceType;
+    private final EntryType trafficType;
 
     public ClusterNode(String name) {
-        this(name, ResourceTypeConstants.COMMON);
+        this(name, ResourceTypeConstants.COMMON, EntryType.IN);
     }
 
     public ClusterNode(String name, int resourceType) {
+        this(name, resourceType, EntryType.IN);
+    }
+
+    public ClusterNode(String name, int resourceType, EntryType trafficType) {
         AssertUtil.notEmpty(name, "name cannot be empty");
         this.name = name;
         this.resourceType = resourceType;
+        this.trafficType = trafficType;
     }
 
     /**
@@ -90,9 +99,10 @@ public class ClusterNode extends StatisticNode {
     }
 
     /**
-     * <p>Get {@link Node} of the specific origin. Usually the origin is the Service Consumer's app name.</p>
-     * <p>If the origin node for given origin is absent, then a new {@link StatisticNode}
-     * for the origin will be created and returned.</p>
+     * <p>Get the {@link StatisticNode} of the specific origin. The origin name is carried in the entrance context.</p>
+     * <p>If the statistic node for given origin is absent, a new {@link StatisticNode} for the origin will be created.
+     * Note that the origin node amount for this resource should not exceed the {@code maxOriginAmount} configured in
+     * {@code SentinelConfig}, or statistic nodes for further new origins will not be created (return null instead)</p>
      *
      * @param origin The caller's name, which is designated in the {@code parameter} parameter
      *               {@link ContextUtil#enter(String name, String origin)}.
@@ -101,10 +111,18 @@ public class ClusterNode extends StatisticNode {
     public Node getOrCreateOriginNode(String origin) {
         StatisticNode statisticNode = originCountMap.get(origin);
         if (statisticNode == null) {
+            int maxOriginLimit = SentinelConfig.maxOriginAmount();
+            if (originCountMap.size() >= maxOriginLimit) {
+                return null;
+            }
+
             lock.lock();
             try {
                 statisticNode = originCountMap.get(origin);
                 if (statisticNode == null) {
+                    if (originCountMap.size() >= maxOriginLimit) {
+                        return null;
+                    }
                     // The node is absent, create a new node for the origin.
                     statisticNode = new StatisticNode();
                     HashMap<String, StatisticNode> newMap = new HashMap<>(originCountMap.size() + 1);
@@ -119,8 +137,40 @@ public class ClusterNode extends StatisticNode {
         return statisticNode;
     }
 
+    /**
+     * Clear the origin map.
+     *
+     * @since 1.7.1
+     */
+    public void clearOriginMap() {
+        lock.lock();
+        try {
+            this.originCountMap = new HashMap<String, StatisticNode>(16);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public Map<String, StatisticNode> getOriginCountMap() {
         return originCountMap;
     }
 
+    /**
+     * Add exception count only when given {@code throwable} is not a {@link BlockException}.
+     *
+     * @param throwable target exception
+     * @param count     count to add
+     */
+    public void trace(Throwable throwable, int count) {
+        if (count <= 0) {
+            return;
+        }
+        if (!BlockException.isBlockException(throwable)) {
+            this.increaseExceptionQps(count);
+        }
+    }
+
+    public EntryType getTrafficType() {
+        return trafficType;
+    }
 }
