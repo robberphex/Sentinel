@@ -15,6 +15,7 @@
  */
 package com.alibaba.csp.sentinel.config;
 
+import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.util.AssertUtil;
 import com.alibaba.csp.sentinel.util.StringUtil;
@@ -60,14 +61,24 @@ public final class SentinelConfig {
     public static final String COLD_FACTOR = "csp.sentinel.flow.cold.factor";
     public static final String STATISTIC_MAX_RT = "csp.sentinel.statistic.max.rt";
     public static final String SPI_CLASSLOADER = "csp.sentinel.spi.classloader";
+    public static final String MAX_RESOURCE_COUNT_PROPERTY_KEY = "csp.sentinel.resource.amount.limit";
+    public static final String MAX_CONTEXT_COUNT_PROPERTY_KEY = "csp.sentinel.context.amount.limit";
+    public static final String MAX_ORIGIN_COUNT_PROPERTY_KEY = "csp.sentinel.statistic.origin.amount.limit";
     public static final String METRIC_FLUSH_INTERVAL = "csp.sentinel.metric.flush.interval";
+    public static final String METRIC_LOG_FLUSH_INTERVAL_PROPERTY_KEY = "csp.sentinel.metric.flush.interval";
+    public static final String STAT_SLIDING_WINDOW_SAMPLE_COUNT_PROP_KEY = "csp.sentinel.stat.slidingWindow.sampleCount";
+    public static final String STAT_SLIDING_WINDOW_INTERVAL_MS_PROP_KEY = "csp.sentinel.stat.slidingWindow.statIntervalMs";
 
     public static final String DEFAULT_CHARSET = "UTF-8";
     public static final long DEFAULT_SINGLE_METRIC_FILE_SIZE = 1024 * 1024 * 50;
     public static final int DEFAULT_TOTAL_METRIC_FILE_COUNT = 6;
+    public static final int DEFAULT_METRIC_LOG_FLUSH_INTERVAL = 1;
+    public static final int DEFAULT_METRIC_LOG_FLUSH_QUEUE_SIZE = 60;
     public static final int DEFAULT_COLD_FACTOR = 3;
-    public static final int DEFAULT_STATISTIC_MAX_RT = 5000;
+    public static final int DEFAULT_STATISTIC_MAX_RT = 60000;
     public static final long DEFAULT_METRIC_FLUSH_INTERVAL = 1L;
+    public static final int DEFAULT_SLIDING_WINDOW_STAT_INTERVAL_MS = 1000;
+    public static final int DEFAULT_SLIDING_WINDOW_SAMPLE_COUNT = 2;
 
     static {
         try {
@@ -106,6 +117,14 @@ public final class SentinelConfig {
         setConfig(COLD_FACTOR, String.valueOf(DEFAULT_COLD_FACTOR));
         setConfig(STATISTIC_MAX_RT, String.valueOf(DEFAULT_STATISTIC_MAX_RT));
         setConfig(METRIC_FLUSH_INTERVAL, String.valueOf(DEFAULT_METRIC_FLUSH_INTERVAL));
+        setConfig(METRIC_LOG_FLUSH_INTERVAL_PROPERTY_KEY, String.valueOf(DEFAULT_METRIC_LOG_FLUSH_INTERVAL));
+
+        setConfig(MAX_RESOURCE_COUNT_PROPERTY_KEY, String.valueOf(Constants.DEFAULT_MAX_RESOURCE_COUNT));
+        setConfig(MAX_CONTEXT_COUNT_PROPERTY_KEY, String.valueOf(Constants.DEFAULT_MAX_ENTRANCE_CONTEXT_COUNT));
+        setConfig(MAX_ORIGIN_COUNT_PROPERTY_KEY, String.valueOf(Constants.DEFAULT_MAX_ORIGIN_COUNT));
+
+        setConfig(STAT_SLIDING_WINDOW_INTERVAL_MS_PROP_KEY, String.valueOf(DEFAULT_SLIDING_WINDOW_STAT_INTERVAL_MS));
+        setConfig(STAT_SLIDING_WINDOW_SAMPLE_COUNT_PROP_KEY, String.valueOf(DEFAULT_SLIDING_WINDOW_SAMPLE_COUNT));
     }
 
     private static void loadProps() {
@@ -239,7 +258,9 @@ public final class SentinelConfig {
     }
 
     /**
-     * <p>Get the max RT value that Sentinel could accept for system BBR strategy.</p>
+     * <p>Get the max RT value that Sentinel could accept.</p>
+     * <p>Response time that exceeds {@code statisticMaxRt} will be recorded as this value.
+     * The default value is {@link #DEFAULT_STATISTIC_MAX_RT}.</p>
      *
      * @return the max allowed RT value
      * @since 1.4.1
@@ -257,6 +278,49 @@ public final class SentinelConfig {
             SentinelConfig.setConfig(STATISTIC_MAX_RT, String.valueOf(DEFAULT_STATISTIC_MAX_RT));
             return DEFAULT_STATISTIC_MAX_RT;
         }
+    }
+
+    /**
+     * <p>Get the max allowed origin amount per resource.</p>
+     * <p>When current amount exceeds the limit, further new origins will be ignored.</p>
+     *
+     * @return the max allowed origin amount per resource
+     * @since 1.7.1
+     */
+    public static int maxOriginAmount() {
+        return getIntOrSetDefault(MAX_ORIGIN_COUNT_PROPERTY_KEY, Constants.DEFAULT_MAX_ORIGIN_COUNT);
+    }
+
+    /**
+     * <p>Get the max allowed entrance context amount of Sentinel.</p>
+     * <p>When current amount exceeds the limit, further new contexts will be ignored.</p>
+     *
+     * @return the max allowed entrance context amount
+     * @since 1.7.1
+     */
+    public static int maxEntranceContextAmount() {
+        return getIntOrSetDefault(MAX_CONTEXT_COUNT_PROPERTY_KEY, Constants.DEFAULT_MAX_ENTRANCE_CONTEXT_COUNT);
+    }
+
+    /**
+     * @return the statistic duration (in ms) of the sliding window
+     * @since 1.8.1
+     */
+    public static int slidingWindowStatIntervalMs() {
+        return getIntOrSetDefault(STAT_SLIDING_WINDOW_INTERVAL_MS_PROP_KEY, DEFAULT_SLIDING_WINDOW_STAT_INTERVAL_MS);
+    }
+
+    /**
+     * @return the bucket count (sample count) of the sliding window
+     * @since 1.8.1
+     */
+    public static int slidingWindowSampleCount() {
+        return getIntOrSetDefault(STAT_SLIDING_WINDOW_SAMPLE_COUNT_PROP_KEY, DEFAULT_SLIDING_WINDOW_SAMPLE_COUNT);
+    }
+
+    private static int getPositiveIntOrSetDefault(String key, int defaultValue) {
+        int v = getIntOrSetDefault(key, defaultValue);
+        return v > 0 ? v : defaultValue;
     }
 
     /**
@@ -283,9 +347,15 @@ public final class SentinelConfig {
      * </ol>
      */
     private static void resolveAppName() {
-        // Priority: system env -> csp.sentinel.app.name -> project.name -> main class (or jar) name
+        // Priority: mse.appName -> csp.sentinel.app.name -> project.name -> main class (or jar) name
+        String n = System.getProperty("mse.appName");
+        if (!StringUtil.isBlank(n)) {
+            appName = n;
+            RecordLog.info("App name resolved from system property (mse.appName): " + appName);
+            return;
+        }
         String envKey = toEnvKey(APP_NAME_PROP_KEY);
-        String n = System.getenv(envKey);
+        n = System.getenv(envKey);
         if (!StringUtil.isBlank(n)) {
             appName = n;
             RecordLog.info("App name resolved from system env {}: {}", envKey, appName);
@@ -339,6 +409,23 @@ public final class SentinelConfig {
     public static boolean shouldUseContextClassloader() {
         String classloaderConf = SentinelConfig.getConfig(SentinelConfig.SPI_CLASSLOADER);
         return CLASSLOADER_CONTEXT.equalsIgnoreCase(classloaderConf);
+    }
+
+    private static int getIntOrSetDefault(String key, int defaultValue) {
+        AssertUtil.assertNotBlank(key, "key cannot be blank");
+        String v = props.get(key);
+        try {
+            if (StringUtil.isEmpty(v)) {
+                // Return the default value, but do not put into the map.
+                return defaultValue;
+            }
+            return Integer.parseInt(v);
+        } catch (Throwable throwable) {
+            RecordLog.warn("[SentinelConfig] Invalid {} value: {}, using the default value instead: "
+                    + defaultValue, key, v, throwable);
+            SentinelConfig.setConfig(key, String.valueOf(defaultValue));
+            return defaultValue;
+        }
     }
 
     private SentinelConfig() {}
