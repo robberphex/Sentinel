@@ -31,9 +31,19 @@ import com.alibaba.csp.sentinel.util.VersionUtil;
  */
 public final class Constants {
 
-    public static final String SENTINEL_VERSION = VersionUtil.getVersion("1.8.7");
+    public static final String SENTINEL_VERSION = VersionUtil.getVersion("unknown");
 
     public final static int MAX_CONTEXT_NAME_SIZE = 2000;
+
+    public static final int MAX_RESOURCE_NAME_LEN = 1024;
+
+    public final static int DEFAULT_MAX_ENTRANCE_CONTEXT_COUNT = 2000;
+    public final static int DEFAULT_MAX_RESOURCE_COUNT = 6000;
+    /**
+     * Default max origin amount per resource (since 1.7.1).
+     */
+    public final static int DEFAULT_MAX_ORIGIN_COUNT = 1000;
+
     public final static int MAX_SLOT_CHAIN_SIZE = 6000;
 
     public final static String ROOT_ID = "machine-root";
@@ -58,12 +68,12 @@ public final class Constants {
      * Global ROOT statistic node that represents the universal parent node.
      */
     public final static DefaultNode ROOT = new EntranceNode(new StringResourceWrapper(ROOT_ID, EntryType.IN),
-        new ClusterNode(ROOT_ID, ResourceTypeConstants.COMMON));
+        new ClusterNode(ROOT_ID, ResourceTypeConstants.COMMON, EntryType.IN));
 
     /**
      * Global statistic node for inbound traffic. Usually used for {@code SystemRule} checking.
      */
-    public final static ClusterNode ENTRY_NODE = new ClusterNode(TOTAL_IN_RESOURCE_NAME, ResourceTypeConstants.COMMON);
+    public final static ClusterNode ENTRY_NODE = new ClusterNode(TOTAL_IN_RESOURCE_NAME, ResourceTypeConstants.COMMON, EntryType.IN);
 
     /**
      * The global switch for Sentinel.
