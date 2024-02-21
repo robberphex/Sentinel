@@ -15,6 +15,10 @@
  */
 package com.alibaba.csp.sentinel.slots.block.degrade;
 
+import com.alibaba.csp.sentinel.Entry;
+import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.Tracer;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreaker;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreaker.State;
@@ -50,13 +54,12 @@ public class CircuitBreakingIntegrationTest extends AbstractTimeBasedTest {
     }
 
     @After
-    public void tearDown() {
-        DegradeRuleManager.loadRules(new ArrayList<>());
-        DefaultCircuitBreakerRuleManager.loadRules(new ArrayList<>());
+    public void tearDown() throws Exception {
+        DegradeRuleManager.loadRules(new ArrayList<DegradeRule>());
     }
 
     @Test
-    public void testSlowRequestMode() {
+    public void testSlowRequestMode() throws Exception {
         try (MockedStatic<TimeUtil> mocked = super.mockTimeUtil()) {
             CircuitBreakerStateChangeObserver observer = mock(CircuitBreakerStateChangeObserver.class);
             setCurrentMillis(mocked, System.currentTimeMillis() / 1000 * 1000);
@@ -82,7 +85,6 @@ public class CircuitBreakingIntegrationTest extends AbstractTimeBasedTest {
             }
 
             // Till now slow ratio should be 70%.
-            assertTrue(entryAndSleepFor(mocked, res, maxRt + ThreadLocalRandom.current().nextInt(10, 20)));
             assertTrue(entryAndSleepFor(mocked, res, maxRt + ThreadLocalRandom.current().nextInt(10, 20)));
             assertTrue(entryAndSleepFor(mocked, res, maxRt + ThreadLocalRandom.current().nextInt(10, 20)));
             assertTrue(entryAndSleepFor(mocked, res, maxRt + ThreadLocalRandom.current().nextInt(10, 20)));

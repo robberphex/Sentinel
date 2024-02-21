@@ -22,9 +22,8 @@ import java.util.Objects;
 
 /**
  * <p>
- * Degrade is used when the resources are in an unstable state, these resources
- * will be degraded within the next defined time window. There are two ways to
- * measure whether a resource is stable or not:
+ * Circuit breaking can be useful when the resources are in an unstable state (e.g. slow or error triggered).
+ * There are several ways to measure whether a resource is stable or not:
  * </p>
  * <ul>
  * <li>
@@ -154,19 +153,31 @@ public class DegradeRule extends AbstractRule {
         if (this == o) { return true; }
         if (o == null || getClass() != o.getClass()) { return false; }
         if (!super.equals(o)) { return false; }
-        DegradeRule rule = (DegradeRule)o;
-        return Double.compare(rule.count, count) == 0 &&
-            timeWindow == rule.timeWindow &&
-            grade == rule.grade &&
-            minRequestAmount == rule.minRequestAmount &&
-            Double.compare(rule.slowRatioThreshold, slowRatioThreshold) == 0 &&
-            statIntervalMs == rule.statIntervalMs;
+
+        DegradeRule that = (DegradeRule) o;
+
+        if (grade != that.grade) { return false; }
+        if (Double.compare(that.count, count) != 0) { return false; }
+        if (timeWindow != that.timeWindow) { return false; }
+        if (minRequestAmount != that.minRequestAmount) { return false; }
+        if (Double.compare(that.slowRatioThreshold, slowRatioThreshold) != 0) { return false; }
+        if (statIntervalMs != that.statIntervalMs) { return false; }
+        return true;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), count, timeWindow, grade, minRequestAmount,
-            slowRatioThreshold, statIntervalMs);
+        int result = super.hashCode();
+        long temp;
+        result = 31 * result + grade;
+        temp = Double.doubleToLongBits(count);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        result = 31 * result + timeWindow;
+        result = 31 * result + minRequestAmount;
+        temp = Double.doubleToLongBits(slowRatioThreshold);
+        result = 31 * result + (int) (temp ^ (temp >>> 32));
+        result = 31 * result + statIntervalMs;
+        return result;
     }
 
     @Override

@@ -20,17 +20,31 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
+import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
+
 import com.alibaba.csp.sentinel.util.TimeUtil;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.test.AbstractTimeBasedTest;
+
+import org.junit.runner.RunWith;
 import org.mockito.MockedStatic;
+import org.mockito.junit.MockitoJUnitRunner;
 
 /**
  * @author jialiang.linjl
  */
+@RunWith(MockitoJUnitRunner.class)
 public class WarmUpControllerTest extends AbstractTimeBasedTest {
+
+    @Before
+    public void setUp() throws Exception {
+        FlowRuleManager.loadRules(null);
+        ClusterBuilderSlot.getClusterNodeMap().clear();
+    }
 
     @Test
     public void testWarmUp() throws InterruptedException {

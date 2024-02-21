@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
 
 /**
  * @author LearningGp
@@ -42,9 +41,9 @@ public class TokenBucketTest extends AbstractTimeBasedTest {
     @BeforeClass
     public static void beforeClass() throws Exception {
         threadPoolExecutor = new ThreadPoolExecutor(64, 64, 0,
-                TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
-                new NamedThreadFactory("sentinel-token-bucket-test", true),
-                new ThreadPoolExecutor.AbortPolicy());
+            TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(),
+            new NamedThreadFactory("sentinel-token-bucket-test", true),
+            new ThreadPoolExecutor.AbortPolicy());
     }
 
     @AfterClass
@@ -127,5 +126,4 @@ public class TokenBucketTest extends AbstractTimeBasedTest {
             assertEquals(10, passNumFullStart.longValue());
         }
     }
-
 }
