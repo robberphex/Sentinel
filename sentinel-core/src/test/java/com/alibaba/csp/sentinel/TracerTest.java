@@ -1,5 +1,21 @@
+/*
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.alibaba.csp.sentinel;
 
+import com.alibaba.csp.sentinel.config.SentinelConfig;
 import com.alibaba.csp.sentinel.context.ContextTestUtil;
 import com.alibaba.csp.sentinel.context.ContextUtil;
 import com.alibaba.csp.sentinel.util.function.Predicate;
@@ -30,7 +46,7 @@ public class TracerTest extends Tracer {
     @Test
     public void testTraceWhenContextSizeExceedsThreshold() {
         int i = 0;
-        for (; i < Constants.MAX_CONTEXT_NAME_SIZE; i++) {
+        for (; i < SentinelConfig.maxEntranceContextAmount(); i++) {
             ContextUtil.enter("test-context-" + i);
             ContextUtil.exit();
         }
@@ -66,12 +82,13 @@ public class TracerTest extends Tracer {
                 } else if (throwable instanceof IgnoreException) {
                     return false;
                 }
-                return false;
+                return true;
             }
         };
         Tracer.setExceptionPredicate(throwablePredicate);
         Assert.assertTrue(Tracer.shouldTrace(new TraceException()));
         Assert.assertFalse(Tracer.shouldTrace(new IgnoreException()));
+        Assert.assertTrue(Tracer.shouldTrace(new IllegalArgumentException()));
     }
 
     @Test
@@ -115,17 +132,24 @@ public class TracerTest extends Tracer {
         Tracer.setExceptionPredicate(null);
     }
 
-    private class TraceException extends Exception {}
+    private class TraceException extends Exception {
+    }
 
-    private class TraceException2 extends Exception {}
+    private class TraceException2 extends Exception {
+    }
 
-    private class TraceExceptionSub extends TraceException {}
+    private class TraceExceptionSub extends TraceException {
+    }
 
-    private class IgnoreException extends Exception {}
+    private class IgnoreException extends Exception {
+    }
 
-    private class IgnoreException2 extends Exception {}
+    private class IgnoreException2 extends Exception {
+    }
 
-    private class IgnoreExceptionSub extends IgnoreException {}
+    private class IgnoreExceptionSub extends IgnoreException {
+    }
 
-    private class BothException extends Exception {}
+    private class BothException extends Exception {
+    }
 }
