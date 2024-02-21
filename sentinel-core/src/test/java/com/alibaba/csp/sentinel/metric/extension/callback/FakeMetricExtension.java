@@ -9,7 +9,7 @@ import com.alibaba.csp.sentinel.slots.block.BlockException;
 class FakeMetricExtension implements MetricExtension {
     long pass = 0;
     long block = 0;
-    long success = 0;
+    long complete = 0;
     long exception = 0;
     long rt = 0;
     long thread = 0;
@@ -26,7 +26,7 @@ class FakeMetricExtension implements MetricExtension {
 
     @Override
     public void addSuccess(String resource, int n, Object... args) {
-        success += n;
+        complete += n;
     }
 
     @Override
