@@ -35,9 +35,10 @@ import java.util.Objects;
  * access to this resource will be blocked.
  * </li>
  * <li>
- * Exception ratio: When the ratio of exception count per second and the
- * success qps exceeds the threshold, access to the resource will be blocked in
- * the coming window.
+ * Error Ratio: Circuit breaking by the error ratio (error count / total completed count).
+ * </li>
+ * <li>
+ * Error Count: Circuit breaking by the number of exceptions.
  * </li>
  * </ul>
  *
@@ -94,6 +95,9 @@ public class DegradeRule extends AbstractRule {
      */
     private int statIntervalMs = 1000;
 
+    private int halfOpenBaseAmountPerStep = 5;
+    private int halfOpenRecoveryStepNum = 1;
+
     public int getGrade() {
         return grade;
     }
@@ -148,6 +152,24 @@ public class DegradeRule extends AbstractRule {
         return this;
     }
 
+    public int getHalfOpenBaseAmountPerStep() {
+        return halfOpenBaseAmountPerStep;
+    }
+
+    public DegradeRule setHalfOpenBaseAmountPerStep(int halfOpenBaseAmountPerStep) {
+        this.halfOpenBaseAmountPerStep = halfOpenBaseAmountPerStep;
+        return this;
+    }
+
+    public int getHalfOpenRecoveryStepNum() {
+        return halfOpenRecoveryStepNum;
+    }
+
+    public DegradeRule setHalfOpenRecoveryStepNum(int halfOpenRecoveryStepNum) {
+        this.halfOpenRecoveryStepNum = halfOpenRecoveryStepNum;
+        return this;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) { return true; }
@@ -162,7 +184,8 @@ public class DegradeRule extends AbstractRule {
         if (minRequestAmount != that.minRequestAmount) { return false; }
         if (Double.compare(that.slowRatioThreshold, slowRatioThreshold) != 0) { return false; }
         if (statIntervalMs != that.statIntervalMs) { return false; }
-        return true;
+        if (halfOpenBaseAmountPerStep != that.halfOpenBaseAmountPerStep) { return false; }
+        return halfOpenRecoveryStepNum == that.halfOpenRecoveryStepNum;
     }
 
     @Override
@@ -177,6 +200,8 @@ public class DegradeRule extends AbstractRule {
         temp = Double.doubleToLongBits(slowRatioThreshold);
         result = 31 * result + (int) (temp ^ (temp >>> 32));
         result = 31 * result + statIntervalMs;
+        result = 31 * result + halfOpenBaseAmountPerStep;
+        result = 31 * result + halfOpenRecoveryStepNum;
         return result;
     }
 
@@ -191,6 +216,8 @@ public class DegradeRule extends AbstractRule {
             ", minRequestAmount=" + minRequestAmount +
             ", slowRatioThreshold=" + slowRatioThreshold +
             ", statIntervalMs=" + statIntervalMs +
+            ", halfOpenBaseAmountPerStep=" + halfOpenBaseAmountPerStep +
+            ", halfOpenRecoveryStepNum=" + halfOpenRecoveryStepNum +
             '}';
     }
 }

@@ -15,17 +15,12 @@
  */
 package com.alibaba.csp.sentinel.slots.block.degrade;
 
-import com.alibaba.csp.sentinel.Entry;
-import com.alibaba.csp.sentinel.SphU;
-import com.alibaba.csp.sentinel.Tracer;
-import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreaker;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreaker.State;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreakerStateChangeObserver;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.EventObserverRegistry;
 import com.alibaba.csp.sentinel.test.AbstractTimeBasedTest;
-
 import com.alibaba.csp.sentinel.util.TimeUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -37,9 +32,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -73,6 +66,7 @@ public class CircuitBreakingIntegrationTest extends AbstractTimeBasedTest {
                     new DegradeRule(res).setTimeWindow(retryTimeoutSec).setCount(maxRt)
                             .setStatIntervalMs(statIntervalMs).setMinRequestAmount(minRequestAmount)
                             .setSlowRatioThreshold(0.8d).setGrade(0)
+                            .setHalfOpenBaseAmountPerStep(1)
             ));
 
             // Try first N requests where N = minRequestAmount.
@@ -200,6 +194,7 @@ public class CircuitBreakingIntegrationTest extends AbstractTimeBasedTest {
                     new DegradeRule(res).setTimeWindow(retryTimeoutSec).setCount(maxRatio)
                             .setStatIntervalMs(statIntervalMs).setMinRequestAmount(minRequestAmount)
                             .setGrade(RuleConstant.DEGRADE_GRADE_EXCEPTION_RATIO)
+                            .setHalfOpenBaseAmountPerStep(1)
             ));
 
             // Try first N requests where N = minRequestAmount.
