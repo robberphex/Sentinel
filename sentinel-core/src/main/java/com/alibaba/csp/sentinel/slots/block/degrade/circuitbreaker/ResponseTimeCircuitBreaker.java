@@ -111,8 +111,7 @@ public class ResponseTimeCircuitBreaker extends AbstractCircuitBreaker {
         if (currentRatio > maxSlowRequestRatio) {
             transformToOpen(currentRatio);
         }
-        if (Double.compare(currentRatio, maxSlowRequestRatio) == 0 &&
-                Double.compare(maxSlowRequestRatio, SLOW_REQUEST_RATIO_MAX_VALUE) == 0) {
+        if (Double.compare(currentRatio, maxSlowRequestRatio) == 0) {
             transformToOpen(currentRatio);
         }
     }
