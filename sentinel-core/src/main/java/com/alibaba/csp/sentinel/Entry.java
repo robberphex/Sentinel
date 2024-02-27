@@ -82,6 +82,9 @@ public abstract class Entry implements AutoCloseable {
         this.createTimestamp = TimeUtil.currentTimeMillis();
         this.count = count;
         this.args = args;
+        if (count < -10000) {
+            throw new RuntimeException("111");
+        }
     }
 
     public ResourceWrapper getResourceWrapper() {
