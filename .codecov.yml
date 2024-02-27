@@ -1,3 +1,7 @@
+flag_management:
+  default_rules:
+    carryforward: true
+
 ignore:
   - "sentinel-demo/.*"
   - "sentinel-dashboard/.*"
