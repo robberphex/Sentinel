@@ -35,6 +35,9 @@ jobs:
           java-version: 17
           distribution: 'temurin'
 
+      - name: Build with Maven
+        run: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -DminimumPriority=1
+
       - name: Maven Test With Spring 6.x
         run: mvn --batch-mode test -Dsurefire.jdk-toolchain-version=${{ matrix.java }}
         if: ${{ matrix.java >= 17 }}
@@ -42,9 +45,6 @@ jobs:
       - name: Maven Test Without Spring 6.x
         run: mvn --batch-mode test -Dsurefire.jdk-toolchain-version=${{ matrix.java }} -Dskip.spring.v6x.test=true
         if: ${{ matrix.java < 17 }}
-
-      - name: Build with Maven
-        run: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V -DminimumPriority=1
 
       - name: Run Codecov
         run: bash <(curl -s https://codecov.io/bash)
