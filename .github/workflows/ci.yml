@@ -36,7 +36,16 @@ jobs:
           distribution: 'temurin'
 
       - name: Build with Maven
-        run: mvn compile -DskipTests=true -Dmaven.javadoc.skip=true -B -V -DminimumPriority=1
+        run: mvn compile -DskipTests=true -Dskip.spring.v6x.test=true -Dmaven.javadoc.skip=true -B -V -DminimumPriority=1
+
+      - run: find -name 'RateLimitResponse$DescriptorStatus.class'
+      - run: file './sentinel-cluster/sentinel-cluster-server-envoy-rls/target/classes/io/envoyproxy/envoy/service/ratelimit/v3/RateLimitResponse$DescriptorStatus.class'
+#      - run: tar czvf /tmp/lll.tgz ./sentinel-cluster/sentinel-cluster-server-envoy-rls/target/classes/
+#      - name: Store packages
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: sentinel-package-${{ matrix.java }}
+#          path: /tmp/lll.tgz
 
       - name: Maven Test With Spring 6.x
         run: mvn --batch-mode test -Dsurefire.jdk-toolchain-version=${{ matrix.java }}
