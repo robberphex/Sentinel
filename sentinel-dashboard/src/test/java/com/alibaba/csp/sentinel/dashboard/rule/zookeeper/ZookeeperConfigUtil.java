@@ -15,7 +15,8 @@
  */
 package com.alibaba.csp.sentinel.dashboard.rule.zookeeper;
 
-import org.apache.commons.lang3.StringUtils;
+
+import org.apache.commons.lang.StringUtils;
 
 public class ZookeeperConfigUtil {
     public static final String RULE_ROOT_PATH = "/sentinel_rule_config";
