@@ -38,6 +38,12 @@ jobs:
       - name: Build with Maven
         run: mvn compile -DskipTests=true -Dmaven.javadoc.skip=true -B -V -DminimumPriority=1
 
+      - name: Store packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: sentinel-package
+          path: ./
+
       - name: Maven Test With Spring 6.x
         run: mvn --batch-mode test -Dsurefire.jdk-toolchain-version=${{ matrix.java }}
         if: ${{ matrix.java >= 17 }}
