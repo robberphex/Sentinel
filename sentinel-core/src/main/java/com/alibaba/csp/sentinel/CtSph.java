@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,6 +98,60 @@ public class CtSph implements Sph {
             // When blocked, the async entry will be exited on current context.
             // The async context will not be initialized.
             asyncEntry.exitForContext(context, count, args);
+            throw e1;
+        } catch (Throwable e1) {
+            // This should not happen, unless there are errors existing in Sentinel internal.
+            // When this happens, async context is not initialized.
+            RecordLog.warn("Sentinel unexpected exception in asyncEntryInternal", e1);
+
+            asyncEntry.cleanCurrentEntryInLocal();
+        }
+        return asyncEntry;
+    }
+
+    /**
+     * @since 1.8.8
+     */
+    private AsyncEntry asyncEntryWithPriorityInternal(
+            ResourceWrapper resourceWrapper, int batchCount, boolean prioritized,
+            Object[] args, Map<String, Object> argMap
+    ) throws BlockException {
+        Context context = ContextUtil.getContext();
+        if (context instanceof NullContext) {
+            // The {@link NullContext} indicates that the amount of context has exceeded the threshold,
+            // so here init the entry only. No rule checking will be done.
+            return asyncEntryWithNoChain(resourceWrapper, context);
+        }
+        if (context == null) {
+            // Using default context.
+            context = InternalContextUtil.internalEnter(Constants.CONTEXT_DEFAULT_NAME);
+        }
+
+        // Global switch is turned off, so no rule checking will be done.
+        if (!Constants.ON) {
+            return asyncEntryWithNoChain(resourceWrapper, context);
+        }
+
+        ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
+
+        // Means processor cache size exceeds {@link Constants.DEFAULT_MAX_RESOURCE_COUNT},
+        // so no rule checking will be done.
+        if (chain == null) {
+            return asyncEntryWithNoChain(resourceWrapper, context);
+        }
+
+        AsyncEntry asyncEntry = new AsyncEntry(resourceWrapper, chain, context, batchCount, args, argMap);
+        try {
+            chain.entry(context, resourceWrapper, null, batchCount, prioritized, args);
+            // Initiate the async context only when the entry successfully passed the slot chain.
+            asyncEntry.initAsyncContext();
+            // The asynchronous call may take time in background, and current context should not be hanged on it.
+            // So we need to remove current async entry from current context.
+            asyncEntry.cleanCurrentEntryInLocal();
+        } catch (BlockException e1) {
+            // When blocked, the async entry will be exited on current context.
+            // The async context will not be initialized.
+            asyncEntry.exitForContext(context, batchCount, args);
             throw e1;
         } catch (Throwable e1) {
             // This should not happen, unless there are errors existing in Sentinel internal.
@@ -352,5 +406,14 @@ public class CtSph implements Sph {
                                          boolean prioritized, Object[] args) throws BlockException {
         StringResourceWrapper resource = new StringResourceWrapper(name, entryType, resourceType);
         return asyncEntryWithPriorityInternal(resource, count, prioritized, args);
+    }
+
+    @Override
+    public AsyncEntry asyncEntryWithType(
+            String name, int resourceType, EntryType trafficType, int batchCount,
+            boolean prioritized, Map<String, Object> argMap
+    ) throws BlockException {
+        StringResourceWrapper resource = new StringResourceWrapper(name, trafficType, resourceType);
+        return asyncEntryWithPriorityInternal(resource, batchCount, prioritized, null, argMap);
     }
 }

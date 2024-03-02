@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 
+import java.util.Map;
+
 /**
  * The entry for asynchronous resources.
  *
@@ -37,6 +39,14 @@ public class AsyncEntry extends CtEntry {
 
     AsyncEntry(ResourceWrapper resourceWrapper, ProcessorSlot<Object> chain, Context context, int count, Object[] args) {
         super(resourceWrapper, chain, context, count, args);
+    }
+
+    /**
+     * @since 1.8.8
+     */
+    AsyncEntry(ResourceWrapper resourceWrapper, ProcessorSlot<Object> chain, Context context, int batchCount,
+               Object[] args, Map<String, Object> argMap) {
+        super(resourceWrapper, chain, context, batchCount, args, argMap);
     }
 
     /**
