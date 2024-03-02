@@ -15,265 +15,357 @@
  */
 package com.alibaba.csp.sentinel.webflow.param;
 
-import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.util.function.Predicate;
 import com.alibaba.csp.sentinel.webflow.SentinelWebFlowConstants;
 import com.alibaba.csp.sentinel.webflow.rule.WebFlowRule;
+import com.alibaba.csp.sentinel.webflow.rule.WebFlowRuleConverter;
 import com.alibaba.csp.sentinel.webflow.rule.WebFlowRuleManager;
 import com.alibaba.csp.sentinel.webflow.rule.WebParamItem;
+import org.apache.commons.collections4.SetUtils;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mockStatic;
 
 public class WebParamParserTest {
 
-    @Test
-    public void testParseParameterFor() {
-        RequestItemParser<Object> itemParser = mock(RequestItemParser.class);
-        WebParamParser<Object> parser = new WebParamParser<Object>(itemParser);
-        // Create a fake request.
-        Object request = new Object();
-        // Prepare gateway rules.
-        Set<WebFlowRule> rules = new HashSet<WebFlowRule>();
-        String routeId1 = "my_test_route_A";
-        rules.add(new WebFlowRule(routeId1)
-                .setCount(5d)
-                .setIntervalMs(1)
-        );
-        rules.add(new WebFlowRule(routeId1)
-                .setCount(10d)
-                .setControlBehavior(2)
-                .setMaxQueueingTimeoutMs(1000)
-        );
-        WebFlowRuleManager.loadRules(rules);
+    private final Predicate<WebFlowRule> routeIdPredicate = new Predicate<WebFlowRule>() {
+        @Override
+        public boolean test(WebFlowRule e) {
+            return e.getResourceMode() == SentinelWebFlowConstants.RESOURCE_MODE_INTERFACE_ID;
+        }
+    };
 
-        assertEquals(rules, WebFlowRuleManager.getRules());
+    private static WebParamParser<Object> paramParser;
+
+    @BeforeClass
+    public static void setUp() {
+        RequestItemParser<Object> itemParser = new MockRequestItemParser();
+        paramParser = new WebParamParser<>(itemParser);
+    }
+
+    private static void updateConvertedParamKey(WebFlowRule rule) {
+        try {
+            String paramKey = WebFlowRuleConverter.generateParamKeyForWebRule(rule);
+            Method setConvertedParamKeyMethod = rule.getParamItem().getClass()
+                    .getDeclaredMethod("setConvertedParamKey", String.class);
+            setConvertedParamKeyMethod.setAccessible(true);
+            setConvertedParamKeyMethod.invoke(rule.getParamItem(), paramKey);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
-    public void testParseParametersWithItems() {
-        RequestItemParser<Object> itemParser = mock(RequestItemParser.class);
-        WebParamParser<Object> paramParser = new WebParamParser<Object>(itemParser);
-        // Create a fake request.
-        Object request = new Object();
+    public void testParseParameterFor_empty() {
+        Map<String, Object> param = paramParser.parseParameterFor("", new Object(), routeIdPredicate);
+        assertEquals(new HashMap<>(), param);
 
-        // Prepare gateway rules.
-        Set<WebFlowRule> rules = new HashSet<WebFlowRule>();
-        final String routeId1 = "my_test_route_A";
-        final String api1 = "my_test_route_B";
-        final String headerName = "X-Sentinel-Flag";
-        final String paramName = "p";
-        final String cookieName = "myCookie";
-        WebFlowRule routeRuleNoParam = new WebFlowRule(routeId1)
-                .setCount(10d);
-        WebFlowRule routeRule1 = new WebFlowRule(routeId1)
-                .setCount(2d)
-                .setBurst(2)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_CLIENT_IP)
-                );
-        WebFlowRule routeRule2 = new WebFlowRule(routeId1)
-                .setCount(10d)
-                .setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER)
-                .setMaxQueueingTimeoutMs(600)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_HEADER)
-                        .setFieldName(headerName)
-                );
-        WebFlowRule routeRule3 = new WebFlowRule(routeId1)
-                .setCount(20d)
-                .setBurst(5)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
-                        .setFieldName(paramName)
-                );
-        WebFlowRule routeRule4 = new WebFlowRule(routeId1)
-                .setCount(120d)
-                .setBurst(30)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_HOST)
-                );
-        WebFlowRule routeRule5 = new WebFlowRule(routeId1)
-                .setCount(50d)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_COOKIE)
-                        .setFieldName(cookieName)
-                );
-        WebFlowRule apiRule1 = new WebFlowRule(api1)
-                .setResourceMode(SentinelWebFlowConstants.RESOURCE_MODE_CUSTOM_API_NAME)
-                .setCount(5d)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
-                        .setFieldName(paramName)
-                );
-        rules.add(routeRule1);
-        rules.add(routeRule2);
-        rules.add(routeRule3);
-        rules.add(routeRule4);
-        rules.add(routeRule5);
-        rules.add(routeRuleNoParam);
-        rules.add(apiRule1);
-        WebFlowRuleManager.loadRules(rules);
+        param = paramParser.parseParameterFor("/a", new Object(), routeIdPredicate);
+        assertEquals(new HashMap<>(), param);
+    }
 
-        final String expectedHost = "hello.test.sentinel";
-        final String expectedAddress = "66.77.88.99";
-        final String expectedHeaderValue1 = "Sentinel";
-        final String expectedUrlParamValue1 = "17";
-        final String expectedCookieValue1 = "Sentinel-Foo";
+    @Test
+    public void testParseParameterFor_ClientIp() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30001L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_CLIENT_IP)
+                    );
+            updateConvertedParamKey(rule);
 
-        mockClientHostAddress(itemParser, expectedAddress);
-        Map<String, String> expectedHeaders = new HashMap<String, String>() {{
-            put(headerName, expectedHeaderValue1); put("Host", expectedHost);
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "1.2.3.4"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_Host() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30002L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_HOST)
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "sentinel_host"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_Header() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30003L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_HEADER)
+                            .setFieldName("header_key")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "header_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_Cookie() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30005L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_COOKIE)
+                            .setFieldName("cookie_key")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "cookie_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_UrlParam() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30004L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
+                            .setFieldName("url_key")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "url_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_UrlParam_Exact() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30004L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
+                            .setFieldName("url_key")
+                            .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_EXACT)
+                            .setPattern("url_val")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "url_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_UrlParam_Contains() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30004L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
+                            .setFieldName("url_key")
+                            .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_CONTAINS)
+                            .setPattern("url_")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "url_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_UrlParam_Regex() {
+        String pattern = "url_v.*";
+        ParamRegexCache.addRegexPattern(pattern);
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30004L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
+                            .setFieldName("url_key")
+                            .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_REGEX)
+                            .setPattern(pattern)
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "url_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_BodyParam() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30006L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_BODY_PARAM)
+                            .setFieldName("body_key")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "body_val"), param);
+        }
+    }
+
+    @Test
+    public void testParseParameterFor_PathParam() {
+        try (MockedStatic<WebFlowRuleManager> mocked = mockStatic(WebFlowRuleManager.class)) {
+            WebFlowRule rule = new WebFlowRule("/WebParamParserTest")
+                    .setId(30007L)
+                    .setCount(5d)
+                    .setIntervalMs(1)
+                    .setParamItem(new WebParamItem()
+                            .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_PATH_PARAM)
+                            .setFieldName("path_key")
+                    );
+            updateConvertedParamKey(rule);
+
+            mocked.when(() -> WebFlowRuleManager.getRulesForResource(anyString()))
+                    .thenReturn(SetUtils.hashSet(rule));
+
+            Map<String, Object> param = paramParser.parseParameterFor(
+                    "/WebParamParserTest",
+                    new Object(),
+                    routeIdPredicate
+            );
+            String key = rule.getParamItem().getConvertedParamKey();
+            assertEquals(mapOf(key, "path_val"), param);
+        }
+    }
+
+    private Map<String, String> mapOf(String key, String value) {
+        Map<String, String> map = new HashMap<>();
+        map.put(key, value);
+        return map;
+    }
+
+    static class MockRequestItemParser implements RequestItemParser<Object> {
+        private Map<String, String> headers = new HashMap<String, String>() {{
+            put("Host", "sentinel_host");
+            put("header_key", "header_val");
         }};
-        mockHeaders(itemParser, expectedHeaders);
-        mockSingleUrlParam(itemParser, paramName, expectedUrlParamValue1);
-        mockSingleCookie(itemParser, cookieName, expectedCookieValue1);
 
-        String expectedUrlParamValue2 = "fs";
-        mockSingleUrlParam(itemParser, paramName, expectedUrlParamValue2);
+        private Map<String, String> urlParam = new HashMap<String, String>() {{
+            put("url_key", "url_val");
+        }};
 
-    }
+        private Map<String, String> cookieParam = new HashMap<String, String>() {{
+            put("cookie_key", "cookie_val");
+        }};
 
-    @Test
-    public void testParseParametersWithEmptyItemPattern() {
-        RequestItemParser<Object> itemParser = mock(RequestItemParser.class);
-        WebParamParser<Object> paramParser = new WebParamParser<Object>(itemParser);
-        // Create a fake request.
-        Object request = new Object();
-        // Prepare gateway rules.
-        Set<WebFlowRule> rules = new HashSet<WebFlowRule>();
-        final String routeId = "my_test_route_DS(*H";
-        final String headerName = "X-Sentinel-Flag";
-        WebFlowRule routeRule1 = new WebFlowRule(routeId)
-                .setCount(10d)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_HEADER)
-                        .setFieldName(headerName)
-                        .setPattern("")
-                        .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_EXACT)
-                );
-        rules.add(routeRule1);
-        WebFlowRuleManager.loadRules(rules);
+        private Map<String, String> bodyParam = new HashMap<String, String>() {{
+            put("body_key", "body_val");
+        }};
 
-        mockSingleHeader(itemParser, headerName, "Sent1nel");
-
-    }
-
-    @Test
-    public void testParseParametersWithItemPatternMatching() {
-        RequestItemParser<Object> itemParser = mock(RequestItemParser.class);
-        WebParamParser<Object> paramParser = new WebParamParser<Object>(itemParser);
-        // Create a fake request.
-        Object request = new Object();
-
-        // Prepare gateway rules.
-        Set<WebFlowRule> rules = new HashSet<WebFlowRule>();
-        final String routeId1 = "my_test_route_F&@";
-        final String api1 = "my_test_route_E5K";
-        final String headerName = "X-Sentinel-Flag";
-        final String paramName = "p";
-
-        String nameEquals = "Wow";
-        String nameContains = "warn";
-        String valueRegex = "\\d+";
-        WebFlowRule routeRule1 = new WebFlowRule(routeId1)
-                .setCount(10d)
-                .setControlBehavior(RuleConstant.CONTROL_BEHAVIOR_RATE_LIMITER)
-                .setMaxQueueingTimeoutMs(600)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_HEADER)
-                        .setFieldName(headerName)
-                        .setPattern(nameEquals)
-                        .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_EXACT)
-                );
-        WebFlowRule routeRule2 = new WebFlowRule(routeId1)
-                .setCount(20d)
-                .setBurst(5)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
-                        .setFieldName(paramName)
-                        .setPattern(nameContains)
-                        .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_CONTAINS)
-                );
-        WebFlowRule apiRule1 = new WebFlowRule(api1)
-                .setResourceMode(SentinelWebFlowConstants.RESOURCE_MODE_CUSTOM_API_NAME)
-                .setCount(5d)
-                .setParamItem(new WebParamItem()
-                        .setParseStrategy(SentinelWebFlowConstants.PARAM_PARSE_STRATEGY_URL_PARAM)
-                        .setFieldName(paramName)
-                        .setPattern(valueRegex)
-                        .setMatchStrategy(SentinelWebFlowConstants.PARAM_MATCH_STRATEGY_REGEX)
-                );
-        rules.add(routeRule1);
-        rules.add(routeRule2);
-        rules.add(apiRule1);
-        WebFlowRuleManager.loadRules(rules);
-
-        mockSingleHeader(itemParser, headerName, nameEquals);
-        mockSingleUrlParam(itemParser, paramName, nameContains);
-
-
-        mockSingleHeader(itemParser, headerName, nameEquals + "_foo");
-        mockSingleUrlParam(itemParser, paramName, nameContains + "_foo");
-
-
-        mockSingleHeader(itemParser, headerName, "foo");
-        mockSingleUrlParam(itemParser, paramName, "foo");
-
-
-        mockSingleUrlParam(itemParser, paramName, "23");
-
-
-        mockSingleUrlParam(itemParser, paramName, "some233");
-
-    }
-
-    private void mockClientHostAddress(/*@Mock*/ RequestItemParser parser, String address) {
-        when(parser.getRemoteAddress(any())).thenReturn(address);
-    }
-
-    private void mockHeaders(/*@Mock*/ RequestItemParser parser, Map<String, String> headerMap) {
-        for (Map.Entry<String, String> e : headerMap.entrySet()) {
-            when(parser.getHeader(any(), eq(e.getKey()))).thenReturn(e.getValue());
-        }
-    }
-
-    private void mockUrlParams(/*@Mock*/ RequestItemParser parser, Map<String, String> paramMap) {
-        for (Map.Entry<String, String> e : paramMap.entrySet()) {
-            when(parser.getUrlParam(any(), eq(e.getKey()))).thenReturn(e.getValue());
-        }
-    }
-
-    private void mockSingleUrlParam(/*@Mock*/ RequestItemParser parser, String key, String value) {
-        when(parser.getUrlParam(any(), eq(key))).thenReturn(value);
-    }
-
-    private void mockSingleHeader(/*@Mock*/ RequestItemParser parser, String key, String value) {
-        when(parser.getHeader(any(), eq(key))).thenReturn(value);
-    }
-
-    private void mockSingleCookie(/*@Mock*/ RequestItemParser parser, String key, String value) {
-        when(parser.getCookieValue(any(), eq(key))).thenReturn(value);
-    }
-
-    class MockRequestItemParser implements RequestItemParser<Object> {
-        @Override
-        public Object parseRequestItem(Object request, WebParamItem paramItem) {
-            return null;
-        }
-        @Override
-        public Predicate<WebParamItem> getParamItemPredicate() {
-            return null;
-        }
+        private Map<String, String> pathParam = new HashMap<String, String>() {{
+            put("path_key", "path_val");
+        }};
 
         @Override
         public String getPath(Object request) {
@@ -282,32 +374,32 @@ public class WebParamParserTest {
 
         @Override
         public String getRemoteAddress(Object request) {
-            return null;
+            return "1.2.3.4";
         }
 
         @Override
         public String getHeader(Object request, String key) {
-            return null;
+            return headers.get(key);
         }
 
         @Override
         public String getUrlParam(Object request, String paramName) {
-            return null;
+            return urlParam.get(paramName);
         }
 
         @Override
         public String getCookieValue(Object request, String cookieName) {
-            return null;
+            return cookieParam.get(cookieName);
         }
 
         @Override
         public String getBodyValue(Object request, String bodyName) {
-            return null;
+            return bodyParam.get(bodyName);
         }
 
         @Override
         public String getPathValue(Object request, String pathName) {
-            return null;
+            return pathParam.get(pathName);
         }
     }
 
