@@ -123,7 +123,8 @@ public class WebParamParser<T> {
                 return null;
         }
     }
-    public String parsePath(/*@Valid*/ WebParamItem item, T request) {
+
+    private String parsePath(/*@Valid*/ WebParamItem item, T request) {
         String pathName = item.getFieldName();
         String pattern = item.getPattern();
         String param = requestItemParser.getPathValue(request, pathName);
@@ -134,8 +135,7 @@ public class WebParamParser<T> {
         return parseWithMatchStrategyInternal(item.getMatchStrategy(), param, pattern);
     }
 
-
-    public String parseClientIp(/*@Valid*/ WebParamItem item, T request) {
+    private String parseClientIp(/*@Valid*/ WebParamItem item, T request) {
         // X-Forwarded-For请求头获取多级代理转发流程:client、proxy1、proxy2
         String ipAddress = requestItemParser.getHeader(request, HEADER_X_FORWARDED_FOR);
         // 若 X-Forwarded-For 为空尝试自定义头中的IP
@@ -176,7 +176,7 @@ public class WebParamParser<T> {
         return parseWithMatchStrategyInternal(item.getMatchStrategy(), ipAddress, pattern);
     }
 
-    public String parseHeader(/*@Valid*/ WebParamItem item, T request) {
+    private String parseHeader(/*@Valid*/ WebParamItem item, T request) {
         String headerKey = item.getFieldName();
         String pattern = item.getPattern();
         // TODO: what if the header has multiple values?
