@@ -25,6 +25,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.servlet.HandlerMapping;
 
+import java.util.HashMap;
+
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
 
@@ -43,13 +45,17 @@ public class SentinelWebPrefixInterceptorTest {
             mocked.when(() -> SphU.asyncEntry(
                     eq("GET:/a/b"),
                     eq(ResourceTypeConstants.COMMON_WEB),
-                    eq(EntryType.IN)
+                    eq(EntryType.IN),
+                    eq(1),
+                    eq(new HashMap<>())
             )).thenCallRealMethod();
             interceptor.preHandle(req, resp, null);
             mocked.verify(() -> SphU.asyncEntry(
                     eq("GET:/a/b"),
                     eq(ResourceTypeConstants.COMMON_WEB),
-                    eq(EntryType.IN)
+                    eq(EntryType.IN),
+                    eq(1),
+                    eq(new HashMap<>())
             ));
         }
     }

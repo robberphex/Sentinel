@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,13 @@ public class CtSph implements Sph {
         return entry;
     }
 
-    private AsyncEntry asyncEntryWithPriorityInternal(ResourceWrapper resourceWrapper, int count, boolean prioritized,
-                                                      Object... args) throws BlockException {
+    /**
+     * @since 1.8.8
+     */
+    private AsyncEntry asyncEntryWithPriorityInternal(
+            ResourceWrapper resourceWrapper, int batchCount, boolean prioritized,
+            Object[] args, Map<String, Object> argMap
+    ) throws BlockException {
         Context context = ContextUtil.getContext();
         if (context instanceof NullContext) {
             // The {@link NullContext} indicates that the amount of context has exceeded the threshold,
@@ -81,14 +86,15 @@ public class CtSph implements Sph {
 
         ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
 
-        // Means processor cache size exceeds {@link Constants.MAX_SLOT_CHAIN_SIZE}, so no rule checking will be done.
+        // Means processor cache size exceeds {@link Constants.DEFAULT_MAX_RESOURCE_COUNT},
+        // so no rule checking will be done.
         if (chain == null) {
             return asyncEntryWithNoChain(resourceWrapper, context);
         }
 
-        AsyncEntry asyncEntry = new AsyncEntry(resourceWrapper, chain, context, count, args);
+        AsyncEntry asyncEntry = new AsyncEntry(resourceWrapper, chain, context, batchCount, args, argMap);
         try {
-            chain.entry(context, resourceWrapper, null, count, prioritized, args);
+            chain.entry(context, resourceWrapper, null, batchCount, prioritized, args);
             // Initiate the async context only when the entry successfully passed the slot chain.
             asyncEntry.initAsyncContext();
             // The asynchronous call may take time in background, and current context should not be hanged on it.
@@ -97,7 +103,7 @@ public class CtSph implements Sph {
         } catch (BlockException e1) {
             // When blocked, the async entry will be exited on current context.
             // The async context will not be initialized.
-            asyncEntry.exitForContext(context, count, args);
+            asyncEntry.exitForContext(context, batchCount, args);
             throw e1;
         } catch (Throwable e1) {
             // This should not happen, unless there are errors existing in Sentinel internal.
@@ -111,7 +117,7 @@ public class CtSph implements Sph {
 
     private AsyncEntry asyncEntryInternal(ResourceWrapper resourceWrapper, int count, Object... args)
         throws BlockException {
-        return asyncEntryWithPriorityInternal(resourceWrapper, count, false, args);
+        return asyncEntryWithPriorityInternal(resourceWrapper, count, false, args, null);
     }
 
     private Entry entryWithPriority(ResourceWrapper resourceWrapper, int count, boolean prioritized, Object... args)
@@ -351,6 +357,15 @@ public class CtSph implements Sph {
     public AsyncEntry asyncEntryWithType(String name, int resourceType, EntryType entryType, int count,
                                          boolean prioritized, Object[] args) throws BlockException {
         StringResourceWrapper resource = new StringResourceWrapper(name, entryType, resourceType);
-        return asyncEntryWithPriorityInternal(resource, count, prioritized, args);
+        return asyncEntryWithPriorityInternal(resource, count, prioritized, args, null);
+    }
+
+    @Override
+    public AsyncEntry asyncEntryWithType(
+            String name, int resourceType, EntryType trafficType, int batchCount,
+            boolean prioritized, Map<String, Object> argMap
+    ) throws BlockException {
+        StringResourceWrapper resource = new StringResourceWrapper(name, trafficType, resourceType);
+        return asyncEntryWithPriorityInternal(resource, batchCount, prioritized, null, argMap);
     }
 }

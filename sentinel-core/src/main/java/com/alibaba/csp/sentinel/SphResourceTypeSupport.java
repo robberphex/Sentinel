@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2019 Alibaba Group Holding Ltd.
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@ package com.alibaba.csp.sentinel;
 
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.system.SystemRule;
+
+import java.util.Map;
 
 /**
  * @author Eric Zhao
@@ -74,4 +76,26 @@ public interface SphResourceTypeSupport {
     AsyncEntry asyncEntryWithType(String name, int resourceType, EntryType trafficType, int batchCount,
                                   boolean prioritized,
                                   Object[] args) throws BlockException;
+
+    /**
+     * Record statistics and perform rule checking for the given resource that indicates an async invocation.
+     *
+     * @param name         the unique name for the protected resource
+     * @param resourceType classification of the resource (e.g. Web or RPC)
+     * @param trafficType  the traffic type (inbound, outbound or internal). This is used
+     *                     to mark whether it can be blocked when the system is unstable,
+     *                     only inbound traffic could be blocked by {@link SystemRule}
+     * @param batchCount   the amount of calls within the invocation (e.g. batchCount=2 means request for 2 tokens)
+     * @param prioritized  whether the entry is prioritized
+     * @param argMap       arg map for parameter flow control or customized slots.
+     *      *              The key of the map represents the identifier of the parameter.
+     * @return the {@link Entry} of this invocation (used for mark the invocation complete and get context data)
+     * @throws BlockException if the block criteria is met
+     * @since 1.8.8
+     */
+    AsyncEntry asyncEntryWithType(
+            String name, int resourceType, EntryType trafficType, int batchCount,
+            boolean prioritized,
+            Map<String, Object> argMap
+    ) throws BlockException;
 }

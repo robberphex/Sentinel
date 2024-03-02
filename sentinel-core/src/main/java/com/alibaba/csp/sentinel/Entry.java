@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import com.alibaba.csp.sentinel.context.ContextUtil;
 import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.context.Context;
+
+import java.util.Map;
 
 /**
  * Each {@link SphU}#entry() will return an {@link Entry}. This class holds information of current invocation:<br/>
@@ -73,15 +75,25 @@ public abstract class Entry implements AutoCloseable {
 
     protected final Object[] args;
 
+    /**
+     * @since 1.8.8
+     */
+    private final Map<String, Object> argMap;
+
     public Entry(ResourceWrapper resourceWrapper) {
-        this(resourceWrapper, 1, OBJECTS0);
+        this(resourceWrapper, 1, OBJECTS0, null);
     }
 
     public Entry(ResourceWrapper resourceWrapper, int count, Object[] args) {
+        this(resourceWrapper, count, args, null);
+    }
+
+    public Entry(ResourceWrapper resourceWrapper, int batchCount, Object[] args, Map<String, Object> argMap) {
         this.resourceWrapper = resourceWrapper;
         this.createTimestamp = TimeUtil.currentTimeMillis();
-        this.count = count;
+        this.count = batchCount;
         this.args = args;
+        this.argMap = argMap;
     }
 
     public ResourceWrapper getResourceWrapper() {
@@ -198,5 +210,11 @@ public abstract class Entry implements AutoCloseable {
      * @since 1.8.0
      */
     public abstract void whenTerminate(BiConsumer<Context, Entry> handler);
-    
+
+    /**
+     * @since 1.8.8
+     */
+    public Map<String, Object> getArgMap() {
+        return argMap;
+    }
 }

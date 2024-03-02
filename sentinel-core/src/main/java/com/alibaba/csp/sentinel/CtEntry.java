@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2018 Alibaba Group Holding Ltd.
+ * Copyright 1999-2024 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.alibaba.csp.sentinel;
 
 import java.util.LinkedList;
+import java.util.Map;
 
 import com.alibaba.csp.sentinel.context.Context;
 import com.alibaba.csp.sentinel.context.ContextUtil;
@@ -47,6 +48,18 @@ class CtEntry extends Entry {
 
     CtEntry(ResourceWrapper resourceWrapper, ProcessorSlot<Object> chain, Context context, int count, Object[] args) {
         super(resourceWrapper, count, args);
+        this.chain = chain;
+        this.context = context;
+
+        setUpEntryFor(context);
+    }
+
+    /**
+     * @since 1.8.8
+     */
+    CtEntry(ResourceWrapper resourceWrapper, ProcessorSlot<Object> chain, Context context, int batchCount,
+            Object[] args, Map<String, Object> argMap) {
+        super(resourceWrapper, batchCount, args, argMap);
         this.chain = chain;
         this.context = context;
 

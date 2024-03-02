@@ -95,6 +95,9 @@ public abstract class AbstractSentinelInterceptor implements HandlerInterceptor 
         return newRc;
     }
 
+    /**
+     * @since 1.8.8
+     */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
@@ -111,11 +114,11 @@ public abstract class AbstractSentinelInterceptor implements HandlerInterceptor 
             String contextName = getContextName(request);
             ContextUtil.enter(contextName, origin);
 
-//            Map<String, Object> params = webParamParser.parseParameterFor(resourceName, request, null);
+            Map<String, Object> params = webParamParser.parseParameterFor(resourceName, request, null);
 
             // Note that AsyncEntry is REQUIRED here (for async Servlet scenarios).
             // TODO: identify whether request is actually ASYNC here.
-            Entry entry = SphU.asyncEntry(resourceName, ResourceTypeConstants.COMMON_WEB, EntryType.IN);
+            Entry entry = SphU.asyncEntry(resourceName, ResourceTypeConstants.COMMON_WEB, EntryType.IN, 1, params);
 
             request.setAttribute(baseWebMvcConfig.getRequestAttributeName(), entry);
             return true;
