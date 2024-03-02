@@ -61,54 +61,6 @@ public class CtSph implements Sph {
         return entry;
     }
 
-    private AsyncEntry asyncEntryWithPriorityInternal(ResourceWrapper resourceWrapper, int count, boolean prioritized,
-                                                      Object... args) throws BlockException {
-        Context context = ContextUtil.getContext();
-        if (context instanceof NullContext) {
-            // The {@link NullContext} indicates that the amount of context has exceeded the threshold,
-            // so here init the entry only. No rule checking will be done.
-            return asyncEntryWithNoChain(resourceWrapper, context);
-        }
-        if (context == null) {
-            // Using default context.
-            context = InternalContextUtil.internalEnter(Constants.CONTEXT_DEFAULT_NAME);
-        }
-
-        // Global switch is turned off, so no rule checking will be done.
-        if (!Constants.ON) {
-            return asyncEntryWithNoChain(resourceWrapper, context);
-        }
-
-        ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
-
-        // Means processor cache size exceeds {@link Constants.MAX_SLOT_CHAIN_SIZE}, so no rule checking will be done.
-        if (chain == null) {
-            return asyncEntryWithNoChain(resourceWrapper, context);
-        }
-
-        AsyncEntry asyncEntry = new AsyncEntry(resourceWrapper, chain, context, count, args);
-        try {
-            chain.entry(context, resourceWrapper, null, count, prioritized, args);
-            // Initiate the async context only when the entry successfully passed the slot chain.
-            asyncEntry.initAsyncContext();
-            // The asynchronous call may take time in background, and current context should not be hanged on it.
-            // So we need to remove current async entry from current context.
-            asyncEntry.cleanCurrentEntryInLocal();
-        } catch (BlockException e1) {
-            // When blocked, the async entry will be exited on current context.
-            // The async context will not be initialized.
-            asyncEntry.exitForContext(context, count, args);
-            throw e1;
-        } catch (Throwable e1) {
-            // This should not happen, unless there are errors existing in Sentinel internal.
-            // When this happens, async context is not initialized.
-            RecordLog.warn("Sentinel unexpected exception in asyncEntryInternal", e1);
-
-            asyncEntry.cleanCurrentEntryInLocal();
-        }
-        return asyncEntry;
-    }
-
     /**
      * @since 1.8.8
      */
@@ -165,7 +117,7 @@ public class CtSph implements Sph {
 
     private AsyncEntry asyncEntryInternal(ResourceWrapper resourceWrapper, int count, Object... args)
         throws BlockException {
-        return asyncEntryWithPriorityInternal(resourceWrapper, count, false, args);
+        return asyncEntryWithPriorityInternal(resourceWrapper, count, false, args, null);
     }
 
     private Entry entryWithPriority(ResourceWrapper resourceWrapper, int count, boolean prioritized, Object... args)
@@ -405,7 +357,7 @@ public class CtSph implements Sph {
     public AsyncEntry asyncEntryWithType(String name, int resourceType, EntryType entryType, int count,
                                          boolean prioritized, Object[] args) throws BlockException {
         StringResourceWrapper resource = new StringResourceWrapper(name, entryType, resourceType);
-        return asyncEntryWithPriorityInternal(resource, count, prioritized, args);
+        return asyncEntryWithPriorityInternal(resource, count, prioritized, args, null);
     }
 
     @Override
